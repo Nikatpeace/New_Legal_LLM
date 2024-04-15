@@ -8,16 +8,20 @@
 
 # COMMAND ----------
 
-# MAGIC %run "./util/notebook-config"
-
-# COMMAND ----------
-
 # MAGIC %md 
 # MAGIC ## Scoring the evaluation set
 # MAGIC
 # MAGIC We first retrieve and install the Python dependencies from the logged model in order to score the model. 
 # MAGIC
 # MAGIC mlflow writes a file with model dependencies at `requirements_path` in DBFS. We then use %pip to install the dependencies in the file.  
+
+# COMMAND ----------
+
+# MAGIC %pip install mlflow
+
+# COMMAND ----------
+
+# MAGIC %run "./util/notebook-config-custom"
 
 # COMMAND ----------
 
@@ -33,7 +37,7 @@ dbutils.library.restartPython()
 
 # COMMAND ----------
 
-# MAGIC %run "./util/notebook-config"
+# MAGIC %run "./util/notebook-config-custom"
 
 # COMMAND ----------
 
@@ -62,6 +66,11 @@ queries = pd.DataFrame({'question': [r['question'] for r in eval_dataset]})
 model = mlflow.pyfunc.load_model(config['model_uri'])
 predictions = model.predict(queries)
 predictions[0]
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC ls ./..
 
 # COMMAND ----------
 

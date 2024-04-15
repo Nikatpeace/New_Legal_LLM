@@ -7,6 +7,7 @@ if 'config' not in locals():
 # DBTITLE 1,Set document path
 config['kb_documents_path'] = "/Users/nikhil.chandna@databricks.com/demos/llm"
 config['vector_store_path'] = '/dbfs/tmp/qabot/vector_store' # /dbfs/... is a local file system representation
+config['test_vector_store_path'] = '/dbfs/tmp/qabot/temp/test_vector_store' # /dbfs/... is a local file system representation
 
 # COMMAND ----------
 
@@ -29,11 +30,11 @@ os.environ['OPENAI_API_KEY'] = dbutils.secrets.get("nik_qa_bot", "new_key")
 # COMMAND ----------
 
 # DBTITLE 1,mlflow settings
-#import mlflow
-#config['registered_model_name'] = 'databricks_llm_qabot_solution_accelerator'
-#config['model_uri'] = f"models:/{config['registered_model_name']}/production"
-#username = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
-#_ = mlflow.set_experiment('/Users/{}/{}'.format(username, config['registered_model_name']))
+import mlflow
+config['registered_model_name'] = 'nik_databricks_legal_llm_qabot'
+config['model_uri'] = f"models:/{config['registered_model_name']}/production"
+username = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
+_ = mlflow.set_experiment('/Users/{}/{}'.format(username, config['registered_model_name']))
 
 # COMMAND ----------
 

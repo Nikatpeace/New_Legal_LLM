@@ -37,7 +37,7 @@ from langchain import LLMChain
 # COMMAND ----------
 
 # DBTITLE 1,Get Config Settings
-# MAGIC %run "./util/notebook-config"
+# MAGIC %run "./util/notebook-config-custom"
 
 # COMMAND ----------
 
@@ -48,10 +48,11 @@ from langchain import LLMChain
 # COMMAND ----------
 
 # DBTITLE 1,Specify Question
-#question = "Can you provide details for a property dispute case?"
+question = "Can you provide details for a property dispute case?"
 #question = "Can you provide examples of evidence provided by the prosecutor?"
 #question = "Are there any Murder cases?"
-question = "What was the most important evidence considered in murder cases?"
+#question = "What was the most important evidence considered in murder cases?"
+#question = "What were the sections used by the prosecution in murder cases?"
 
 # COMMAND ----------
 
@@ -150,15 +151,15 @@ class QABot():
     self.retriever = retriever
     self.prompt = prompt
     self.qa_chain = LLMChain(llm = self.llm, prompt=prompt)
-    self.abbreviations = { # known abbreviations we want to replace
-      "DBR": "Databricks Runtime",
-      "ML": "Machine Learning",
-      "UC": "Unity Catalog",
-      "DLT": "Delta Live Table",
-      "DBFS": "Databricks File Store",
-      "HMS": "Hive Metastore",
-      "UDF": "User Defined Function"
-      } 
+    #self.abbreviations = { # known abbreviations we want to replace
+    #  "DBR": "Databricks Runtime",
+    #  "ML": "Machine Learning",
+    #  "UC": "Unity Catalog",
+    #  "DLT": "Delta Live Table",
+    #  "DBFS": "Databricks File Store",
+    #  "HMS": "Hive Metastore",
+    #  "UDF": "User Defined Function"
+    #  } 
 
 
   def _is_good_answer(self, answer):
@@ -167,10 +168,17 @@ class QABot():
 
     result = True # default response
 
+   # badanswer_phrases = [ # phrases that indicate model produced non-answer
+   #   "no information", "no context", "don't know", "no clear answer", "sorry", 
+   #   "no answer", "no mention", "reminder", "context does not provide", "no helpful answer", 
+   #   "given context", "no helpful", "no relevant", "no question", "not clear",
+   #   "don't have enough information", " does not have the relevant information", "does not seem to be directly related"
+   #   ]
+
     badanswer_phrases = [ # phrases that indicate model produced non-answer
       "no information", "no context", "don't know", "no clear answer", "sorry", 
-      "no answer", "no mention", "reminder", "context does not provide", "no helpful answer", 
-      "given context", "no helpful", "no relevant", "no question", "not clear",
+      "no answer", "no mention", "reminder", "context does not provide", "no helpful answer",
+      "no helpful", "no relevant", "no question", "not clear",
       "don't have enough information", " does not have the relevant information", "does not seem to be directly related"
       ]
     
@@ -226,9 +234,9 @@ class QABot():
     result = {'answer':None, 'source':None, 'output_metadata':None}
 
     # remove common abbreviations from question
-    for abbreviation, full_text in self.abbreviations.items():
-      pattern = re.compile(fr'\b({abbreviation}|{abbreviation.lower()})\b', re.IGNORECASE)
-      question = pattern.sub(f"{abbreviation} ({full_text})", question)
+   # for abbreviation, full_text in self.abbreviations.items():
+   #   pattern = re.compile(fr'\b({abbreviation}|{abbreviation.lower()})\b', re.IGNORECASE)
+   #   question = pattern.sub(f"{abbreviation} ({full_text})", question)
 
     # get relevant documents
     docs = self.retriever.get_relevant_documents(question)
@@ -238,7 +246,11 @@ class QABot():
 
       # get key elements for doc
       text = doc.page_content
-      source = doc.metadata['source']
+      #source = doc.metadata['source']
+      if 'source' in doc.metadata:
+                source = doc.metadata['source']
+      else:
+                source = 'unknown source'
 
       # get an answer from llm
       output = self._get_answer(text, question)
@@ -356,9 +368,7 @@ model = mlflow.pyfunc.load_model(f"models:/{config['registered_model_name']}/Pro
 
 # assemble question input
 queries = pd.DataFrame({'question':[
-  "How to read data with Delta Sharing?",
-  "What are Delta Live Tables datasets?",
-  "How to set up Unity Catalog?"
+  "Can you provide details for a property dispute case?"
 ]})
 
 # get a response

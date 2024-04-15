@@ -40,23 +40,17 @@ from langchain.vectorstores.faiss import FAISS
 
 # COMMAND ----------
 
-# MAGIC %md ##Step 1: Load the Raw Data to Table
-# MAGIC
-# MAGIC A snapshot of the three documentation sources is made available at a publicly accessible cloud storage. Our first step is to access the extracted documents. We can load them to a table using a Spark DataReader configured for reading [JSON](https://spark.apache.org/docs/3.1.2/api/python/reference/api/pyspark.sql.DataFrameReader.json.html) with the `multiLine` option.  
-
-# COMMAND ----------
-
 # DBTITLE 1,Read JSON Data to Dataframe
-raw = (
-  spark
-    .read
-    .option("multiLine", "true")
-    .json(
-      f"{config['kb_documents_path']}/source/"
-      )
-  )
+#raw = (
+#  spark
+#    .read
+#    .option("multiLine", "true")
+#    .json(
+#      f"{config['kb_documents_path']}/source/"
+#      )
+#  )
 
-display(raw)
+#display(raw)
 
 # COMMAND ----------
 
@@ -66,17 +60,17 @@ display(raw)
 
 # DBTITLE 1,Save Data to Table
 # save data to table
-_ = (
-  raw
-    .write
-    .format('delta')
-    .mode('overwrite')
-    .option('overwriteSchema','true')
-    .saveAsTable('sources')
-  )
+#_ = (
+#  raw
+#    .write
+#    .format('delta')
+#    .mode('overwrite')
+#    .option('overwriteSchema','true')
+#    .saveAsTable('sources')
+#  )
 
 # count rows in table
-print(spark.table('sources').count())
+#print(spark.table('sources').count())
 
 # COMMAND ----------
 
@@ -100,6 +94,10 @@ raw_inputs = (
   ) 
 
 display(raw_inputs)
+
+# COMMAND ----------
+
+raw_inputs.count()
 
 # COMMAND ----------
 
@@ -145,8 +143,8 @@ for chunk in text_splitter.split_text(long_text):
 # COMMAND ----------
 
 # DBTITLE 1,Chunking Configurations
-chunk_size = 3500
-chunk_overlap = 400
+chunk_size = 2000
+chunk_overlap = 300
 
 # COMMAND ----------
 
@@ -170,11 +168,69 @@ chunked_inputs = (
     .withColumn('chunk', fn.expr("explode(chunks)"))
     .drop('chunks')
     .withColumnRenamed('chunk','text')
-    .limit(1000)
+  
   )
 
   # display transformed data
 display(chunked_inputs)
+
+# COMMAND ----------
+
+for i in chunked_inputs.count()%500:
+  Incr_chunks = (
+    chunked_inputs
+      .limit(500*i)
+      .offset(500*i - 500)
+  
+  print("running "+ i)
+  )
+
+# COMMAND ----------
+
+for i in range(chunked_inputs.count() // 500 ):
+    incr_chunks = chunked_inputs.limit(500*(i+1)).offset(500*(i+1) - 500)
+    print("running " + str(i+1)+ "and" + str(incr_chunks.count()) )
+
+# COMMAND ----------
+
+import time
+embeddings = OpenAIEmbeddings(model=config['openai_embedding_model'])
+
+for i in range(chunked_inputs.count() // 500 ):
+    incr_chunks = chunked_inputs.limit(500*(i+1)).offset(500*(i+1) - 500)
+    print("running " + str(i+1)+ "and" + str(incr_chunks.count()) )
+    # convert inputs to pandas dataframe
+    inputs = incr_chunks.toPandas()
+    # extract searchable text elements
+    text_inputs = inputs['text'].to_list()
+    # extract metadata
+    metadata_inputs = (
+      inputs
+        .drop(['text','num_chunks'], axis=1)
+        .to_dict(orient='records')
+      )
+    # instantiate vector store object
+    vector_store = FAISS.from_texts(
+      embedding=embeddings, 
+      texts=text_inputs, 
+      metadatas=metadata_inputs
+      )
+    time.sleep(8)
+    if(i>0):
+      vector_store_incremental = FAISS.load_local(embeddings=embeddings, folder_path=config['test_vector_store_path'])
+      vector_store_incremental.merge_from(vector_store)
+      num_documents = len(vector_store_incremental.index_to_docstore_id)
+      print(f"Total number of documents: {num_documents}")
+      vector_store_incremental.save_local(folder_path=config['test_vector_store_path'])
+
+    else:
+      vector_store.save_local(folder_path=config['test_vector_store_path'])
+    
+
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
@@ -221,18 +277,18 @@ vector_store = FAISS.from_texts(
 
 # COMMAND ----------
 
-import time
-
-# identify embedding model that will generate embedding vectors
 embeddings = OpenAIEmbeddings(model=config['openai_embedding_model'])
+vector_store_incremental = FAISS.load_local(embeddings=embeddings, folder_path=config['vector_store_path'])
 
-# instantiate vector store object with a delay of 1 second between requests
-vector_store = FAISS.from_texts(
-  embedding=embeddings, 
-  texts=text_inputs, 
-  metadatas=metadata_inputs, 
-  delay=1
-  )
+# COMMAND ----------
+
+vector_store_incremental.merge_from(vector_store)
+
+# COMMAND ----------
+
+
+num_documents = len(vector_store_incremental.index_to_docstore_id)
+print(f"Total number of documents: {num_documents}")
 
 # COMMAND ----------
 
@@ -241,7 +297,12 @@ vector_store = FAISS.from_texts(
 # COMMAND ----------
 
 # DBTITLE 1,Persist Vector Store to Storage
-vector_store.save_local(folder_path=config['vector_store_path'])
+vector_store_incremental.save_local(folder_path=config['vector_store_path'])
+
+# COMMAND ----------
+
+#test_dict = vector_store.docstore._dict
+#print(len(test_dict.values()))
 
 # COMMAND ----------
 

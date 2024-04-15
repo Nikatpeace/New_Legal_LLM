@@ -10,7 +10,7 @@
 # COMMAND ----------
 
 # DBTITLE 1,Get Config Settings
-# MAGIC %run "./util/notebook-config"
+# MAGIC %run "./util/notebook-config-custom"
 
 # COMMAND ----------
 
@@ -159,6 +159,8 @@ def score_model(dataset):
     )
     data_json = json.dumps(ds_dict, allow_nan=True)
     response = requests.request(method="POST", headers=headers, url=url, data=data_json)
+    print(headers)
+    print(data_json)
     if response.status_code != 200:
         raise Exception(
             f"Request failed with status {response.status_code}, {response.text}"
@@ -175,7 +177,7 @@ def score_model(dataset):
 # DBTITLE 1,Test the Model Serving Endpoint
 # assemble question input
 queries = pd.DataFrame({'question':[
-  "What's the QPS limit for a serverless model serving request?"
+  "Can you provide details for a property dispute case?"
 ]})
 
 score_model( 
